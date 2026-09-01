@@ -63,8 +63,8 @@ export const MERCHANTS: Merchant[] = [
   {
     mid: 'mrc_demo',
     name: 'Nimbus Store',
-    clientId: 'TEST_paywize_clientid_demo',
-    clientSecret: 'cfsk_TEST_paywize_secret_demo_00000000',
+    clientId: 'TEST_clientid_demo',
+    clientSecret: 'pgsk_TEST_secret_demo_00000000',
     allowedOrigins: ['http://localhost:5173', 'http://127.0.0.1:5173'],
     // Where we POST signed events. Set MERCHANT_WEBHOOK_URL to point elsewhere.
     webhookUrl: process.env.MERCHANT_WEBHOOK_URL ?? 'http://localhost:4000/webhook',

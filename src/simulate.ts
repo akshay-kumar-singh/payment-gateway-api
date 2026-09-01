@@ -26,10 +26,10 @@ export const TEST_CARDS: Record<string, Outcome> = {
 };
 
 export const TEST_VPAS: Record<string, Outcome> = {
-  'success@paywize': { status: 'PENDING', message: 'Waiting for you to approve in your UPI app', resolveInMs: 5000, resolveTo: 'SUCCESS' },
-  'failure@paywize': { status: 'FAILED', message: 'You declined the payment', errorCode: 'UPI_DECLINED' },
-  'timeout@paywize': { status: 'PENDING', message: 'Waiting for you to approve in your UPI app', resolveInMs: 90_000, resolveTo: 'FAILED' },
-  'invalid@paywize': { status: 'FAILED', message: 'That UPI ID does not exist', errorCode: 'UPI_INVALID_VPA' },
+  'success@pgtest': { status: 'PENDING', message: 'Waiting for you to approve in your UPI app', resolveInMs: 5000, resolveTo: 'SUCCESS' },
+  'failure@pgtest': { status: 'FAILED', message: 'You declined the payment', errorCode: 'UPI_DECLINED' },
+  'timeout@pgtest': { status: 'PENDING', message: 'Waiting for you to approve in your UPI app', resolveInMs: 90_000, resolveTo: 'FAILED' },
+  'invalid@pgtest': { status: 'FAILED', message: 'That UPI ID does not exist', errorCode: 'UPI_INVALID_VPA' },
 };
 
 /** Banks seeded as down, so merchants can test the unavailable path. */

@@ -1,10 +1,10 @@
 # payment-gateway-api
 
-The Paywize gateway: REST API + the hosted checkout page.
+The payment gateway: REST API + the hosted checkout page.
 
 ```
-/pg/*        the API paywize-pg calls   (secret key required)
-/checkout    the page paywize-js opens  (no secret; scoped to a session id)
+/pg/*        the API payment-gateway-node-sdk calls   (secret key required)
+/checkout    the page payment-gateway-browser-sdk opens  (no secret; scoped to a session id)
 ```
 
 ## Run
@@ -17,8 +17,8 @@ npm run dev          # http://localhost:8080
 ## Test credentials
 
 ```
-x-client-id:     TEST_paywize_clientid_demo
-x-client-secret: cfsk_TEST_paywize_secret_demo_00000000
+x-client-id:     TEST_clientid_demo
+x-client-secret: pgsk_TEST_secret_demo_00000000
 ```
 
 ## Deploy (Render)

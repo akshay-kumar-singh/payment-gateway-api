@@ -1,5 +1,5 @@
 /**
- * The Paywize gateway.
+ * The payment gateway.
  *
  * Two surfaces in one process:
  *   /pg/*       the REST API the server SDK calls (secret key required)
@@ -302,7 +302,7 @@ async function notify(order: Order, payment: Payment, type: string): Promise<voi
 
 const port = Number(process.env.PORT ?? 8080);
 app.listen(port, () => {
-  console.log(`Paywize gateway on http://localhost:${port}`);
+  console.log(`Payment gateway on http://localhost:${port}`);
   console.log(`  API      http://localhost:${port}/pg/orders`);
   console.log(`  Checkout http://localhost:${port}/checkout?session=...`);
 });

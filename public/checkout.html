@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Secure checkout · Paywize</title>
+<title>Secure checkout</title>
 <style>
   :root{
     --accent:#0E6E5C; --accent-dark:#0B5A4B; --accent-soft:#E3F0EC;
@@ -91,7 +91,7 @@
     <button class="x" id="close" aria-label="Close">×</button>
   </div>
   <div class="body" id="body"><div class="mid"><div class="sp"></div><div class="st">Setting up secure checkout</div></div></div>
-  <div class="foot">🔒 <b>Secured by Paywize</b></div>
+  <div class="foot">🔒 <b>Secure payment</b></div>
 </div></div>
 
 <script>
@@ -122,7 +122,7 @@
     if (parentOrigin) { window.parent.postMessage({ type: type, payload: payload }, parentOrigin); return; }
     // Only a dismiss may go out before the origin is verified: it carries no data, and
     // without it a rejected embed would trap the customer in a modal they cannot close.
-    if (type === 'paywize:dismiss') window.parent.postMessage({ type: type, payload: payload }, '*');
+    if (type === 'pg:dismiss') window.parent.postMessage({ type: type, payload: payload }, '*');
   }
 
   function complete(payment) {
@@ -132,7 +132,7 @@
         paymentStatus: payment.paymentStatus, paymentMessage: payment.paymentMessage
       }
     };
-    if (embedded) { post('paywize:complete', result); return; }
+    if (embedded) { post('pg:complete', result); return; }
     var url = RETURN || (order && order.returnUrl);
     if (url) {
       var u = new URL(url, location.href);
@@ -143,7 +143,7 @@
   }
 
   function dismiss() {
-    if (embedded) { post('paywize:dismiss', { reason: 'customer_closed' }); return; }
+    if (embedded) { post('pg:dismiss', { reason: 'customer_closed' }); return; }
     var url = RETURN || (order && order.returnUrl);
     if (url) location.replace(url);
   }
@@ -152,7 +152,7 @@
 
   window.addEventListener('message', function (e) {
     var d = e.data || {};
-    if (d.type === 'paywize:init' && !parentOrigin) {
+    if (d.type === 'pg:init' && !parentOrigin) {
       // Second layer of domain whitelisting. The CSP frame-ancestors header has already
       // stopped the browser rendering us on an unregistered origin; this catches the
       // rest, and gives a readable error instead of a blank frame.
@@ -164,7 +164,7 @@
       parentOrigin = e.origin;
       return;
     }
-    if (d.type === 'paywize:request-dismiss' && e.origin === parentOrigin) dismiss();
+    if (d.type === 'pg:request-dismiss' && e.origin === parentOrigin) dismiss();
   });
 
   /* ---------------------------------------------------------------- api */
@@ -233,7 +233,7 @@
     el('c2').onclick = dismiss;
   }
 
-  function render(html) { body.innerHTML = html; if (embedded) post('paywize:resize', { height: document.body.scrollHeight }); }
+  function render(html) { body.innerHTML = html; if (embedded) post('pg:resize', { height: document.body.scrollHeight }); }
 
   /* -------------------------------------------------------------- screens */
 
@@ -245,7 +245,7 @@
   ];
   var BANKS = [['HDFC','HDFC Bank'],['ICIC','ICICI Bank'],['SBIN','State Bank of India'],['UTIB','Axis Bank'],['KKBK','Kotak Mahindra'],['CNRB','Canara Bank']];
   var WALLETS = [['PAYTM','Paytm'],['PHONEPE','PhonePe'],['AMAZONPAY','Amazon Pay'],['MOBIKWIK','MobiKwik']];
-  var TEST_VPAS = [['success@paywize','Approved after ~5s'],['failure@paywize','You decline it'],['timeout@paywize','Never approved'],['invalid@paywize','UPI ID does not exist']];
+  var TEST_VPAS = [['success@pgtest','Approved after ~5s'],['failure@pgtest','You decline it'],['timeout@pgtest','Never approved'],['invalid@pgtest','UPI ID does not exist']];
   var TEST_CARDS = [['4111111111111111','Succeeds'],['4000000000000002','Declined by bank'],['4000000000009995','Insufficient funds'],['4000000000000127','Incorrect CVV']];
 
   function methods() {
@@ -343,7 +343,7 @@
     el('amt').textContent = money(s.amount);
     methods();
     // Now that we know who is allowed to embed us, invite the parent to identify itself.
-    if (embedded) window.parent.postMessage({ type: 'paywize:ready' }, '*');
+    if (embedded) window.parent.postMessage({ type: 'pg:ready' }, '*');
   }).catch(function (err) { showError(err.message); });
 })();
 </script>
