@@ -1,4 +1,4 @@
-# paywize-dummy-api
+# payment-gateway-api
 
 The Paywize gateway: REST API + the hosted checkout page.
 
