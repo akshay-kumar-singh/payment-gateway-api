@@ -118,7 +118,11 @@
   var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
 
   function post(type, payload) {
-    if (embedded && parentOrigin) window.parent.postMessage({ type: type, payload: payload }, parentOrigin);
+    if (!embedded) return;
+    if (parentOrigin) { window.parent.postMessage({ type: type, payload: payload }, parentOrigin); return; }
+    // Only a dismiss may go out before the origin is verified: it carries no data, and
+    // without it a rejected embed would trap the customer in a modal they cannot close.
+    if (type === 'paywize:dismiss') window.parent.postMessage({ type: type, payload: payload }, '*');
   }
 
   function complete(payment) {
@@ -149,13 +153,19 @@
   window.addEventListener('message', function (e) {
     var d = e.data || {};
     if (d.type === 'paywize:init' && !parentOrigin) {
+      // Second layer of domain whitelisting. The CSP frame-ancestors header has already
+      // stopped the browser rendering us on an unregistered origin; this catches the
+      // rest, and gives a readable error instead of a blank frame.
+      // e.origin is set by the browser, so a page cannot lie about where it is.
+      if (!order || !order.allowedOrigins || order.allowedOrigins.indexOf(e.origin) === -1) {
+        showError('This website is not authorised to accept payments for this merchant.');
+        return;
+      }
       parentOrigin = e.origin;
       return;
     }
     if (d.type === 'paywize:request-dismiss' && e.origin === parentOrigin) dismiss();
   });
-
-  if (embedded) window.parent.postMessage({ type: 'paywize:ready' }, '*');
 
   /* ---------------------------------------------------------------- api */
 
@@ -332,6 +342,8 @@
     el('mnote').textContent = s.note || 'Secure payment';
     el('amt').textContent = money(s.amount);
     methods();
+    // Now that we know who is allowed to embed us, invite the parent to identify itself.
+    if (embedded) window.parent.postMessage({ type: 'paywize:ready' }, '*');
   }).catch(function (err) { showError(err.message); });
 })();
 </script>

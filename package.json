@@ -1,5 +1,5 @@
 {
-  "name": "paywize-dummy-api",
+  "name": "payment-gateway-api",
   "version": "1.0.0",
   "private": true,
   "description": "Paywize gateway \u2014 REST API + hosted checkout page.",

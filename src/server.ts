@@ -181,7 +181,25 @@ app.post('/pg/orders/:orderId/refunds', authenticate, (req, res) => {
    These are called by the checkout page itself. They are scoped to one session id,
    which is unguessable and expires — so no secret key is needed or wanted here. */
 
-app.get('/checkout', (_req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'checkout.html')));
+app.get('/checkout', (req, res) => {
+  // Domain whitelisting, enforced by the BROWSER.
+  //
+  // frame-ancestors tells the browser which sites may embed this page. An origin the
+  // merchant never registered cannot render the checkout at all — the browser refuses
+  // before any of our JavaScript runs, so it cannot be bypassed from the embedding page.
+  const orderId = sessions.get(String(req.query.session ?? ''));
+  const order = orderId ? orders.get(orderId) : undefined;
+  const merchant = order ? merchantByMid(order.mid) : undefined;
+
+  if (merchant) {
+    const ancestors = merchant.allowedOrigins.join(' ');
+    res.setHeader('Content-Security-Policy', `frame-ancestors 'self' ${ancestors}`);
+  }
+  // Unknown session: no header. There is nothing to protect, and the page needs to be
+  // able to render its "invalid session" message wherever it was opened.
+
+  res.sendFile(path.join(__dirname, '..', 'public', 'checkout.html'));
+});
 
 app.get('/pg/checkout/session/:sessionId', (req, res) => {
   const orderId = sessions.get(req.params.sessionId);
@@ -199,6 +217,7 @@ app.get('/pg/checkout/session/:sessionId', (req, res) => {
     customer: order.customer,
     note: order.note,
     returnUrl: order.returnUrl,
+    allowedOrigins: merchant.allowedOrigins,
     expiresAt: new Date(order.expiresAt).toISOString(),
   });
 });
