@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Secure checkout · Paywize</title>
+<style>
+  :root{
+    --accent:#0E6E5C; --accent-dark:#0B5A4B; --accent-soft:#E3F0EC;
+    --ink:#16191C; --ink-2:#4A5560; --ink-3:#7A8792;
+    --surface:#fff; --alt:#F5F7F6; --border:#DDE3E1; --border-strong:#B9C3C0;
+    --ok:#0E7C52; --ok-soft:#E4F3EC; --bad:#B03A22; --bad-soft:#FBE9E4;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{font-family:var(--font);color:var(--ink);background:transparent;-webkit-font-smoothing:antialiased}
+  body.standalone{background:#EEF1EF}
+  .wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(16,22,20,.55)}
+  body.standalone .wrap{background:transparent}
+  body.inline .wrap{position:static;padding:0;background:none;display:block}
+  .sheet{width:100%;max-width:400px;max-height:100%;display:flex;flex-direction:column;background:var(--surface);border-radius:16px;overflow:hidden;box-shadow:0 24px 64px -12px rgba(16,22,20,.45);animation:rise .22s cubic-bezier(.2,.8,.3,1)}
+  body.inline .sheet{max-width:none;box-shadow:none;border:1px solid var(--border);animation:none}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  .head{display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border)}
+  .mark{width:38px;height:38px;flex:0 0 38px;border-radius:9px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700;font-size:17px}
+  .head-t{flex:1;min-width:0}
+  .head-n{font-size:14px;font-weight:650}
+  .head-s{font-size:12px;color:var(--ink-3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .amt{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+  .x{width:30px;height:30px;flex:0 0 30px;border:0;border-radius:8px;background:var(--alt);color:var(--ink-2);font-size:17px;cursor:pointer}
+  .x:hover{background:var(--border)}
+  .body{flex:1;overflow-y:auto;padding:16px}
+  .t{font-size:12px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px}
+  .rows{display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;align-items:center;gap:12px;width:100%;padding:13px 14px;text-align:left;cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:10px;font:inherit;color:inherit}
+  .row:hover:not(:disabled){border-color:var(--accent);background:var(--accent-soft)}
+  .row:disabled{opacity:.45;cursor:not-allowed}
+  .ric{width:34px;height:34px;flex:0 0 34px;border-radius:8px;display:grid;place-items:center;font-size:15px;background:var(--alt)}
+  .rm{flex:1;min-width:0}
+  .rl{font-size:14px;font-weight:600;display:block}
+  .rs{font-size:12px;color:var(--ink-3);margin-top:1px;display:block}
+  .arw{color:var(--ink-3);font-size:17px}
+  .badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 6px;border-radius:4px;background:var(--ok-soft);color:var(--ok)}
+  .badge.bad{background:var(--bad-soft);color:var(--bad)}
+  label.f{display:block;margin-bottom:14px}
+  .lab{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:6px}
+  .in{width:100%;padding:12px 13px;font:inherit;font-size:15px;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface);color:var(--ink)}
+  .in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .in.m{font-family:var(--mono);letter-spacing:.04em}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .hint{font-size:12px;color:var(--ink-3);margin-top:5px}
+  .btn{width:100%;padding:14px;font:inherit;font-size:15px;font-weight:650;border:0;border-radius:10px;cursor:pointer;background:var(--accent);color:#fff}
+  .btn:hover:not(:disabled){background:var(--accent-dark)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.gh{background:transparent;color:var(--accent);border:1px solid var(--border-strong);margin-top:10px}
+  .lnk{background:none;border:0;color:var(--accent);font:inherit;font-size:13px;cursor:pointer;padding:8px;width:100%}
+  .back{display:inline-flex;gap:5px;background:none;border:0;padding:0 0 12px;font:inherit;font-size:13px;color:var(--ink-2);cursor:pointer}
+  .back:hover{color:var(--accent)}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .tile{display:flex;flex-direction:column;align-items:center;gap:7px;padding:13px 7px;cursor:pointer;font:inherit;background:var(--surface);border:1px solid var(--border);border-radius:10px}
+  .tile:hover:not(:disabled){border-color:var(--accent);background:var(--accent-soft)}
+  .tile:disabled{opacity:.4;cursor:not-allowed}
+  .tl{font-size:11px;font-weight:600;text-align:center}
+  .mid{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:36px 24px;min-height:280px;gap:6px}
+  .sp{width:40px;height:40px;border-radius:50%;border:3px solid var(--accent-soft);border-top-color:var(--accent);animation:spin .8s linear infinite;margin-bottom:14px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .ic{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-size:27px;margin-bottom:14px}
+  .ic.ok{background:var(--ok-soft);color:var(--ok)} .ic.bad{background:var(--bad-soft);color:var(--bad)}
+  .st{font-size:17px;font-weight:700} .sm{font-size:13px;color:var(--ink-2);max-width:280px;line-height:1.5}
+  .cd{font-family:var(--mono);font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .foot{display:flex;align-items:center;justify-content:center;gap:6px;padding:11px;border-top:1px solid var(--border);background:var(--alt);font-size:11px;color:var(--ink-3)}
+  .foot b{color:var(--ink-2);font-weight:650}
+  details.test{margin-top:16px;border-top:1px dashed var(--border-strong);padding-top:12px}
+  details.test summary{font-size:11px;font-weight:700;color:#8A6516;cursor:pointer;text-transform:uppercase;letter-spacing:.05em}
+  details.test ul{margin:9px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+  details.test button{display:flex;justify-content:space-between;gap:10px;width:100%;padding:6px 8px;background:#fff;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:11px;cursor:pointer;text-align:left}
+  details.test code{font-family:var(--mono);font-size:10.5px;color:var(--ink-2)}
+  @media(max-width:460px){.wrap{padding:0;align-items:flex-end}.sheet{max-width:100%;border-radius:16px 16px 0 0;max-height:94%}}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="sheet">
+  <div class="head">
+    <div class="mark" id="mark">·</div>
+    <div class="head-t"><div class="head-n" id="mname">Loading…</div><div class="head-s" id="mnote"></div></div>
+    <div class="amt" id="amt"></div>
+    <button class="x" id="close" aria-label="Close">×</button>
+  </div>
+  <div class="body" id="body"><div class="mid"><div class="sp"></div><div class="st">Setting up secure checkout</div></div></div>
+  <div class="foot">🔒 <b>Secured by Paywize</b></div>
+</div></div>
+
+<script>
+(function () {
+  'use strict';
+  var API = window.location.origin;
+  var params = new URLSearchParams(location.search);
+  var SESSION = params.get('session') || '';
+  var RETURN = params.get('return_url') || '';
+
+  // In an iframe we talk to the parent by postMessage. Standalone (redirect flow) we
+  // navigate to the return URL instead. Same page, two delivery modes.
+  var embedded = window.parent !== window;
+  var parentOrigin = null;
+  if (!embedded) document.body.classList.add('standalone');
+
+  var el = function (id) { return document.getElementById(id); };
+  var body = el('body');
+  var order = null;
+
+  var money = function (n) {
+    return '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
+
+  function post(type, payload) {
+    if (embedded && parentOrigin) window.parent.postMessage({ type: type, payload: payload }, parentOrigin);
+  }
+
+  function complete(payment) {
+    var result = {
+      paymentDetails: {
+        orderId: payment.orderId, paymentId: payment.paymentId,
+        paymentStatus: payment.paymentStatus, paymentMessage: payment.paymentMessage
+      }
+    };
+    if (embedded) { post('paywize:complete', result); return; }
+    var url = RETURN || (order && order.returnUrl);
+    if (url) {
+      var u = new URL(url, location.href);
+      u.searchParams.set('order_id', payment.orderId);
+      u.searchParams.set('payment_status', payment.paymentStatus);
+      location.replace(u.toString());
+    }
+  }
+
+  function dismiss() {
+    if (embedded) { post('paywize:dismiss', { reason: 'customer_closed' }); return; }
+    var url = RETURN || (order && order.returnUrl);
+    if (url) location.replace(url);
+  }
+
+  el('close').addEventListener('click', dismiss);
+
+  window.addEventListener('message', function (e) {
+    var d = e.data || {};
+    if (d.type === 'paywize:init' && !parentOrigin) {
+      parentOrigin = e.origin;
+      return;
+    }
+    if (d.type === 'paywize:request-dismiss' && e.origin === parentOrigin) dismiss();
+  });
+
+  if (embedded) window.parent.postMessage({ type: 'paywize:ready' }, '*');
+
+  /* ---------------------------------------------------------------- api */
+
+  function api(path, opts) {
+    return fetch(API + path, opts).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok) throw Object.assign(new Error(j.message || 'Request failed'), { code: j.code });
+        return j;
+      });
+    });
+  }
+
+  function pay(method, instrument) {
+    render(busy('Contacting your bank', 'This can take a few seconds.'));
+    api('/pg/checkout/pay', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session: SESSION, method: method, instrument: instrument })
+    }).then(function (p) {
+      if (p.paymentStatus === 'PENDING') return waitFor(p);
+      finish(p);
+    }).catch(function (err) { showError(err.message); });
+  }
+
+  // Callbacks from banks and NPCI are unreliable, so the client polls. Real
+  // integrations do exactly this — it is not a shortcut for the demo.
+  function waitFor(p) {
+    render(busy('Waiting for your approval', 'Open your UPI app and approve the request.'));
+    var started = Date.now();
+    var timer = setInterval(function () {
+      api('/pg/checkout/payment/' + p.paymentId).then(function (u) {
+        if (u.paymentStatus === 'PENDING') {
+          if (Date.now() - started > 120000) { clearInterval(timer); finish(u); }
+          return;
+        }
+        clearInterval(timer);
+        finish(u);
+      }).catch(function () { /* transient — next tick may succeed */ });
+    }, 2000);
+  }
+
+  function finish(p) {
+    if (p.paymentStatus === 'SUCCESS') {
+      render('<div class="mid"><div class="ic ok">✓</div><div class="st">Payment successful</div>'
+        + '<p class="sm">' + money(order.amount) + ' paid.</p>'
+        + '<code class="hint">' + esc(p.paymentId) + '</code></div>');
+      setTimeout(function () { complete(p); }, 1200);
+    } else {
+      render('<div class="mid"><div class="ic bad">!</div><div class="st">' + esc(p.paymentMessage) + '</div>'
+        + '<p class="sm">You have not been charged.</p>'
+        + '<button class="btn" id="retry" style="margin-top:18px">Try another method</button>'
+        + '<button class="lnk" id="giveup">Cancel payment</button></div>');
+      el('retry').onclick = methods;
+      el('giveup').onclick = function () { complete(p); };
+    }
+  }
+
+  function busy(title, msg) {
+    return '<div class="mid"><div class="sp"></div><div class="st">' + esc(title) + '</div>'
+      + (msg ? '<p class="sm">' + esc(msg) + '</p>' : '') + '</div>';
+  }
+
+  function showError(msg) {
+    render('<div class="mid"><div class="ic bad">!</div><div class="st">' + esc(msg) + '</div>'
+      + '<button class="lnk" id="c2" style="margin-top:16px">Close</button></div>');
+    el('c2').onclick = dismiss;
+  }
+
+  function render(html) { body.innerHTML = html; if (embedded) post('paywize:resize', { height: document.body.scrollHeight }); }
+
+  /* -------------------------------------------------------------- screens */
+
+  var METHODS = [
+    { id: 'upi', icon: '⚡', label: 'UPI', sub: 'Google Pay, PhonePe, Paytm', badge: 'Fastest' },
+    { id: 'card', icon: '💳', label: 'Card', sub: 'Credit or debit' },
+    { id: 'netbanking', icon: '🏦', label: 'Net Banking', sub: 'All major banks' },
+    { id: 'wallet', icon: '👛', label: 'Wallet', sub: 'Paytm, PhonePe, Amazon Pay' }
+  ];
+  var BANKS = [['HDFC','HDFC Bank'],['ICIC','ICICI Bank'],['SBIN','State Bank of India'],['UTIB','Axis Bank'],['KKBK','Kotak Mahindra'],['CNRB','Canara Bank']];
+  var WALLETS = [['PAYTM','Paytm'],['PHONEPE','PhonePe'],['AMAZONPAY','Amazon Pay'],['MOBIKWIK','MobiKwik']];
+  var TEST_VPAS = [['success@paywize','Approved after ~5s'],['failure@paywize','You decline it'],['timeout@paywize','Never approved'],['invalid@paywize','UPI ID does not exist']];
+  var TEST_CARDS = [['4111111111111111','Succeeds'],['4000000000000002','Declined by bank'],['4000000000009995','Insufficient funds'],['4000000000000127','Incorrect CVV']];
+
+  function methods() {
+    var h = '<p class="t">Pay ' + money(order.amount) + ' using</p><div class="rows">';
+    METHODS.forEach(function (m) {
+      h += '<button class="row" data-m="' + m.id + '"><span class="ric">' + m.icon + '</span>'
+        + '<span class="rm"><span class="rl">' + m.label + '</span><span class="rs">' + m.sub + '</span></span>'
+        + (m.badge ? '<span class="badge">' + m.badge + '</span>' : '') + '<span class="arw">›</span></button>';
+    });
+    render(h + '</div>');
+    [].forEach.call(body.querySelectorAll('[data-m]'), function (b) {
+      b.onclick = function () { ({ upi: upi, card: card, netbanking: banks, wallet: wallets })[b.dataset.m](); };
+    });
+  }
+
+  function backBtn() { return '<button class="back" id="bk">← All payment methods</button>'; }
+  function wireBack() { var b = el('bk'); if (b) b.onclick = methods; }
+
+  function upi() {
+    var t = '<details class="test"><summary>Test UPI IDs</summary><ul>';
+    TEST_VPAS.forEach(function (v) { t += '<li><button data-v="' + v[0] + '"><code>' + v[0] + '</code><span>' + v[1] + '</span></button></li>'; });
+    render(backBtn() + '<p class="t">Enter your UPI ID</p>'
+      + '<label class="f"><span class="lab">UPI ID</span><input class="in m" id="vpa" placeholder="yourname@bank" autocomplete="off"></label>'
+      + '<button class="btn" id="go" disabled>Request payment</button>' + t + '</ul></details>');
+    wireBack();
+    var i = el('vpa'), g = el('go');
+    i.oninput = function () { g.disabled = !/^[\w.\-]{2,64}@[a-zA-Z]{2,32}$/.test(i.value.trim()); };
+    g.onclick = function () { pay('upi', i.value.trim()); };
+    [].forEach.call(body.querySelectorAll('[data-v]'), function (b) {
+      b.onclick = function () { i.value = b.dataset.v; i.oninput(); };
+    });
+  }
+
+  function card() {
+    var t = '<details class="test"><summary>Test cards</summary><ul>';
+    TEST_CARDS.forEach(function (c) { t += '<li><button data-c="' + c[0] + '"><code>' + c[0] + '</code><span>' + c[1] + '</span></button></li>'; });
+    render(backBtn()
+      + '<label class="f"><span class="lab">Card number</span><input class="in m" id="num" inputmode="numeric" placeholder="1234 5678 9012 3456" autocomplete="cc-number"></label>'
+      + '<div class="g2"><label class="f"><span class="lab">Expiry</span><input class="in m" id="exp" placeholder="MM/YY" inputmode="numeric" autocomplete="cc-exp"></label>'
+      + '<label class="f"><span class="lab">CVV</span><input class="in m" id="cvv" type="password" inputmode="numeric" placeholder="•••" autocomplete="cc-csc"></label></div>'
+      + '<label class="f"><span class="lab">Name on card</span><input class="in" id="nm" autocomplete="cc-name"></label>'
+      + '<button class="btn" id="go" disabled>Pay ' + money(order.amount) + '</button>' + t + '</ul></details>');
+    wireBack();
+    var num = el('num'), exp = el('exp'), cvv = el('cvv'), nm = el('nm'), g = el('go');
+    function check() {
+      var d = num.value.replace(/\D/g, '');
+      g.disabled = !(d.length >= 15 && /^\d{2}\/\d{2}$/.test(exp.value) && cvv.value.length >= 3 && nm.value.trim().length > 1);
+    }
+    num.oninput = function () {
+      var d = num.value.replace(/\D/g, '').slice(0, 19);
+      num.value = d.replace(/(.{4})/g, '$1 ').trim();
+      check();
+    };
+    exp.oninput = function () {
+      var d = exp.value.replace(/\D/g, '').slice(0, 4);
+      exp.value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d;
+      check();
+    };
+    cvv.oninput = function () { cvv.value = cvv.value.replace(/\D/g, '').slice(0, 4); check(); };
+    nm.oninput = check;
+    g.onclick = function () { pay('card', num.value.replace(/\D/g, '')); };
+    [].forEach.call(body.querySelectorAll('[data-c]'), function (b) {
+      b.onclick = function () {
+        num.value = b.dataset.c.replace(/(.{4})/g, '$1 ').trim();
+        exp.value = '12/30'; cvv.value = '123'; nm.value = 'Test Customer'; check();
+      };
+    });
+  }
+
+  function tiles(title, items, method) {
+    var h = backBtn() + '<p class="t">' + title + '</p><div class="grid">';
+    items.forEach(function (b) {
+      var down = b[0] === 'CNRB' || b[0] === 'MOBIKWIK';
+      h += '<button class="tile" data-b="' + b[0] + '"' + (down ? ' disabled' : '') + '>'
+        + '<span class="tl">' + b[1] + '</span>' + (down ? '<span class="badge bad">Down</span>' : '') + '</button>';
+    });
+    render(h + '</div>');
+    wireBack();
+    [].forEach.call(body.querySelectorAll('[data-b]'), function (b) {
+      b.onclick = function () { pay(method, b.dataset.b); };
+    });
+  }
+  function banks() { tiles('Choose your bank', BANKS, 'netbanking'); }
+  function wallets() { tiles('Choose a wallet', WALLETS, 'wallet'); }
+
+  /* ----------------------------------------------------------------- boot */
+
+  if (!SESSION) { showError('No payment session. Create an order on your server first.'); return; }
+
+  api('/pg/checkout/session/' + encodeURIComponent(SESSION)).then(function (s) {
+    order = s;
+    el('mark').textContent = (s.merchantName || 'P').charAt(0);
+    el('mname').textContent = s.merchantName;
+    el('mnote').textContent = s.note || 'Secure payment';
+    el('amt').textContent = money(s.amount);
+    methods();
+  }).catch(function (err) { showError(err.message); });
+})();
+</script>
+</body>
+</html>
