@@ -1,0 +1,17 @@
+# Render reads this on "New > Blueprint", so the service needs no manual setup.
+services:
+  - type: web
+    name: payment-gateway-api
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      # Render injects PORT itself; the server already reads it.
+      - key: NODE_VERSION
+        value: "20"
+      # Browsers only ever frame the checkout (governed by frame-ancestors),
+      # so CORS is unused by the demo flow. Set here for any direct API calls.
+      - key: CORS_ORIGINS
+        value: http://localhost:5173,http://127.0.0.1:5173
