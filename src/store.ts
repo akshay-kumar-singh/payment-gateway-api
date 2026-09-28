@@ -58,6 +58,31 @@ export interface Refund {
   createdAt: number;
 }
 
+/**
+ * Origins allowed to frame the hosted checkout for the demo merchant.
+ *
+ * The checkout sets `frame-ancestors` from this list, so an origin that is not
+ * here cannot open it. The defaults cover the demo store on its usual port; set
+ * ALLOWED_ORIGINS (comma-separated) to add your own, or the single value `*` to
+ * let any origin in.
+ *
+ * `*` is acceptable here only because this is a sandbox gateway that moves no
+ * real money. A production gateway must pin this per merchant.
+ */
+const DEFAULT_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+];
+
+const configuredOrigins = (process.env.ALLOWED_ORIGINS ?? '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+export const ALLOW_ANY_ORIGIN = configuredOrigins.includes('*');
+
 /** One seeded test merchant, so the SDKs work the moment the server starts. */
 export const MERCHANTS: Merchant[] = [
   {
@@ -65,8 +90,9 @@ export const MERCHANTS: Merchant[] = [
     name: 'Nimbus Store',
     clientId: 'TEST_clientid_demo',
     clientSecret: 'pgsk_TEST_secret_demo_00000000',
-    allowedOrigins: ['http://localhost:5173', 'http://127.0.0.1:5173'],
-    // Where we POST signed events. Set MERCHANT_WEBHOOK_URL to point elsewhere.
+    allowedOrigins: [...DEFAULT_ORIGINS, ...configuredOrigins.filter((o) => o !== '*')],
+    // Where we POST signed events. A hosted gateway cannot reach a webhook on
+    // your laptop, so this only fires if MERCHANT_WEBHOOK_URL is a public URL.
     webhookUrl: process.env.MERCHANT_WEBHOOK_URL ?? 'http://localhost:4000/webhook',
   },
 ];

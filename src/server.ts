@@ -13,8 +13,8 @@ import cors from 'cors';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  ORDER_TTL_MS, findMerchant, idempotency, merchantByMid, newSessionId,
-  orders, payments, ref, refunds, sessions,
+  ALLOW_ANY_ORIGIN, ORDER_TTL_MS, findMerchant, idempotency, merchantByMid,
+  newSessionId, orders, payments, ref, refunds, sessions,
   type Order, type Payment,
 } from './store.js';
 import { outcomeFor } from './simulate.js';
@@ -192,7 +192,9 @@ app.get('/checkout', (req, res) => {
   const merchant = order ? merchantByMid(order.mid) : undefined;
 
   if (merchant) {
-    const ancestors = merchant.allowedOrigins.join(' ');
+    // ALLOWED_ORIGINS=* opens the sandbox to any site so the published SDKs work
+    // from wherever someone is trying them. Never do this with real money.
+    const ancestors = ALLOW_ANY_ORIGIN ? '*' : merchant.allowedOrigins.join(' ');
     res.setHeader('Content-Security-Policy', `frame-ancestors 'self' ${ancestors}`);
   }
   // Unknown session: no header. There is nothing to protect, and the page needs to be
