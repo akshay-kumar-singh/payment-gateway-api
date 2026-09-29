@@ -1,0 +1,570 @@
+openapi: 3.1.0
+
+info:
+  title: Payment Gateway API
+  version: 1.0.0
+  description: |
+    A test payment gateway. Orders, hosted checkout, payments, refunds and webhooks.
+
+    **Two kinds of endpoint, and the difference is the whole security model.**
+
+    * **Merchant endpoints** (`/pg/orders`, `/pg/payments`, refunds) require your
+      secret key. They may only ever be called from your server.
+    * **Checkout endpoints** (`/pg/checkout/*`) require only a `paymentSessionId`.
+      They are called by the hosted checkout page in the customer's browser.
+      A session id is enough to *show* an order, never enough to *change* one.
+
+    Never put `x-client-secret` in browser code. Use the browser SDK, which passes
+    only a session id.
+  license:
+    name: MIT
+  # The wire API version, sent as x-api-version on every request. Kept separate
+  # from info.version, which describes this document and must stay semver — code
+  # generators copy it straight into package metadata.
+  x-api-version: "2026-01-01"
+
+servers:
+  - url: https://payment-gateway-api-1juk.onrender.com
+    description: Sandbox
+
+tags:
+  - name: Orders
+    description: Create and read orders. Secret key required.
+  - name: Payments
+    description: Read payments and issue refunds. Secret key required.
+  - name: Checkout
+    description: Used by the hosted checkout page. Session id only, no secret key.
+  - name: System
+
+security:
+  - ClientId: []
+    ClientSecret: []
+
+paths:
+  /pg/orders:
+    post:
+      tags: [Orders]
+      summary: Create an order
+      operationId: createOrder
+      description: |
+        Returns a `paymentSessionId` — an opaque token that is safe to send to a
+        browser. Pass `x-idempotency-key` so a retried request returns the original
+        order instead of creating a second one.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrderRequest' }
+      responses:
+        '200':
+          description: The order, new or the one this idempotency key already created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: An order with this `order_id` already exists
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+    get:
+      tags: [Orders]
+      summary: List orders
+      operationId: listOrders
+      description: |
+        Newest first, cursor-paginated. Pass the previous response's `nextCursor`
+        to get the next page; its absence means you have reached the end.
+
+        Cursors are keyset-based rather than offset-based, so an order created
+        while you are paging cannot shift rows along and make you skip one.
+      parameters:
+        - name: limit
+          in: query
+          description: 1–100. Values outside the range are clamped.
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: cursor
+          in: query
+          description: From a previous response's `nextCursor`. Omit for the first page.
+          schema: { type: string }
+      responses:
+        '200':
+          description: One page of orders
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderPage' }
+        '400':
+          description: The cursor does not match any order
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /pg/orders/{orderId}:
+    get:
+      tags: [Orders]
+      summary: Fetch one order
+      operationId: fetchOrder
+      description: |
+        **The only trustworthy way to know an order is paid.** A result handed to
+        you by a browser is a hint; this is proof. Check it before you ship.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: The order
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /pg/orders/{orderId}/payments:
+    get:
+      tags: [Payments]
+      summary: List an order's payment attempts
+      operationId: listOrderPayments
+      description: An order can have several attempts — a declined card, then a successful one.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Every attempt against this order
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Payment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /pg/payments/{paymentId}:
+    get:
+      tags: [Payments]
+      summary: Fetch one payment
+      operationId: fetchPayment
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: The payment
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /pg/orders/{orderId}/refunds:
+    post:
+      tags: [Payments]
+      summary: Refund a paid order
+      operationId: createRefund
+      description: Omit `refund_amount_paise` to refund the full amount.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateRefundRequest' }
+      responses:
+        '200':
+          description: The refund
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
+        '400':
+          description: The refund exceeds the captured amount
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Only a paid order can be refunded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /checkout:
+    get:
+      tags: [Checkout]
+      summary: The hosted checkout page
+      operationId: checkoutPage
+      security: []
+      description: |
+        Returns HTML, not JSON. The browser SDK points an iframe at this URL — you
+        never request it yourself.
+
+        The response carries a `Content-Security-Policy: frame-ancestors` header
+        built from the merchant's registered domains, so the browser refuses to
+        render the page on any other site.
+      parameters:
+        - name: session
+          in: query
+          required: true
+          schema: { type: string }
+        - name: return_url
+          in: query
+          description: Overrides the order's return URL for the redirect styles.
+          schema: { type: string, format: uri }
+      responses:
+        '200':
+          description: The checkout page
+          headers:
+            Content-Security-Policy:
+              description: "`frame-ancestors` listing the merchant's allowed domains"
+              schema: { type: string }
+          content:
+            text/html:
+              schema: { type: string }
+
+  /pg/checkout/session/{sessionId}:
+    get:
+      tags: [Checkout]
+      summary: Read a checkout session
+      operationId: fetchSession
+      security: []
+      description: |
+        Called by the checkout page to learn what it is charging for. Deliberately
+        returns no secret and nothing that could be used to alter the order.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: What the checkout page needs to render
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CheckoutSession' }
+        '404':
+          description: No such session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: Already paid
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '410':
+          description: The session expired (orders live 15 minutes)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /pg/checkout/pay:
+    post:
+      tags: [Checkout]
+      summary: Submit a payment
+      operationId: submitPayment
+      security: []
+      description: |
+        Called by the checkout page when the customer presses Pay. A `PENDING`
+        result means the customer still has to approve in their UPI app — poll
+        `/pg/checkout/payment/{paymentId}` until it settles.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PayRequest' }
+      responses:
+        '200':
+          description: The outcome of this attempt
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '404':
+          description: No such session
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: Already paid
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '410':
+          description: The session expired
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /pg/checkout/payment/{paymentId}:
+    get:
+      tags: [Checkout]
+      summary: Poll a pending payment
+      operationId: pollPayment
+      security: []
+      description: |
+        The checkout page polls this while a UPI collect request is outstanding.
+
+        Polling exists because bank and NPCI callbacks are unreliable. Never rely
+        on a callback alone to learn a payment succeeded.
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: The payment, settled or still pending
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '404':
+          description: No such payment
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      operationId: health
+      security: []
+      responses:
+        '200':
+          description: The gateway is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  orders: { type: integer }
+                  payments: { type: integer }
+
+components:
+  securitySchemes:
+    ClientId:
+      type: apiKey
+      in: header
+      name: x-client-id
+    ClientSecret:
+      type: apiKey
+      in: header
+      name: x-client-secret
+      description: Server only. Never send this from a browser.
+
+  parameters:
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema: { type: string }
+    IdempotencyKey:
+      name: x-idempotency-key
+      in: header
+      description: |
+        Repeat the same key to retry safely. The gateway returns the order the
+        first call created instead of charging again.
+      schema: { type: string }
+
+  responses:
+    BadRequest:
+      description: The request was malformed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or wrong `x-client-id` / `x-client-secret`
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: No such record, or it belongs to another merchant
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: A stable machine-readable code. Branch on this, not on `message`.
+          examples: [AUTH_FAILED, ORDER_NOT_FOUND, INVALID_AMOUNT, SESSION_EXPIRED]
+        message:
+          type: string
+          description: Human-readable. Wording may change; never parse it.
+
+    CreateOrderRequest:
+      type: object
+      required: [order_amount_paise, customer_details]
+      properties:
+        order_amount_paise:
+          type: integer
+          minimum: 100
+          description: |
+            Integer paise, never rupees. ₹499.50 is `49950`. Money is carried as
+            integers because floats lose fractions of a rupee.
+        order_currency:
+          type: string
+          default: INR
+        order_id:
+          type: string
+          description: Your own reference. Generated if omitted.
+        customer_details:
+          type: object
+          required: [customer_phone]
+          properties:
+            customer_id: { type: string }
+            customer_phone: { type: string }
+            customer_email: { type: string, format: email }
+            customer_name: { type: string }
+        order_meta:
+          type: object
+          properties:
+            return_url:
+              type: string
+              format: uri
+              description: Where the redirect checkout styles send the customer back to.
+        order_note: { type: string, description: Shown on the checkout page. }
+        order_tags:
+          type: object
+          additionalProperties: { type: string }
+
+    Order:
+      type: object
+      properties:
+        orderId: { type: string }
+        orderStatus:
+          type: string
+          enum: [ACTIVE, PAID, EXPIRED, TERMINATED]
+        orderAmount:
+          type: number
+          description: In rupees. Requests take paise; responses return rupees.
+        orderCurrency: { type: string }
+        paymentSessionId:
+          type: string
+          description: |
+            Opaque and safe to send to a browser. Reveals nothing and cannot be
+            used to alter the order.
+        customerDetails: { $ref: '#/components/schemas/CustomerDetails' }
+        orderNote: { type: string }
+        orderTags:
+          type: object
+          additionalProperties: { type: string }
+        createdAt: { type: string, format: date-time }
+        orderExpiryTime:
+          type: string
+          format: date-time
+          description: Orders live 15 minutes.
+
+    OrderPage:
+      type: object
+      required: [data, hasMore]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Order' }
+        nextCursor:
+          type: string
+          description: Pass to the next call. Absent means there are no more pages.
+        hasMore: { type: boolean }
+
+    CustomerDetails:
+      type: object
+      properties:
+        customerId: { type: string }
+        customerPhone: { type: string }
+        customerEmail: { type: string }
+        customerName: { type: string }
+
+    Payment:
+      type: object
+      properties:
+        paymentId: { type: string }
+        orderId: { type: string }
+        paymentStatus:
+          type: string
+          enum: [SUCCESS, FAILED, PENDING]
+          description: |
+            `PENDING` means undecided, not failed — a UPI collect the customer has
+            not approved yet. Poll until it settles.
+        paymentAmount: { type: number, description: In rupees. }
+        paymentCurrency: { type: string }
+        paymentMethod:
+          type: string
+          enum: [card, upi, netbanking, wallet]
+        paymentMessage: { type: string }
+        bankReference: { type: string }
+        paymentTime: { type: string, format: date-time }
+        errorCode:
+          type: string
+          description: Present when `paymentStatus` is `FAILED`.
+          examples: [CARD_DECLINED, INSUFFICIENT_FUNDS, UPI_DECLINED, BANK_DOWN]
+
+    CreateRefundRequest:
+      type: object
+      properties:
+        refund_amount_paise:
+          type: integer
+          description: Integer paise. Omit to refund the full amount.
+        refund_id: { type: string }
+        refund_note: { type: string }
+
+    Refund:
+      type: object
+      properties:
+        refundId: { type: string }
+        orderId: { type: string }
+        paymentId: { type: string }
+        refundAmount: { type: number, description: In rupees. }
+        refundStatus: { type: string, enum: [SUCCESS] }
+        refundNote: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    CheckoutSession:
+      type: object
+      description: What the hosted checkout page needs to render. No secrets.
+      properties:
+        orderId: { type: string }
+        amount: { type: number }
+        currency: { type: string }
+        merchantName:
+          type: string
+          description: Resolved from the merchant record, not sent by the shop.
+        customer: { $ref: '#/components/schemas/CustomerDetails' }
+        note: { type: string }
+        returnUrl: { type: string }
+        allowedOrigins:
+          type: array
+          items: { type: string }
+        expiresAt: { type: string, format: date-time }
+
+    PayRequest:
+      type: object
+      required: [session, method, instrument]
+      properties:
+        session: { type: string }
+        method:
+          type: string
+          enum: [card, upi, netbanking, wallet]
+        instrument:
+          type: string
+          description: |
+            Card number, UPI ID, or bank/wallet code. Deterministic in sandbox —
+            `4111111111111111` always succeeds, `4000000000000002` always declines.
+
+  x-webhooks:
+    description: |
+      The gateway POSTs signed events to the merchant's registered webhook URL.
+
+      Headers: `x-webhook-signature`, `x-webhook-timestamp`, `x-webhook-version`.
+      The signature is `base64(HMAC-SHA256(clientSecret, "{timestamp}.{rawBody}"))`.
+
+      Verify against the **raw bytes** — re-serialising parsed JSON changes them and
+      the signature will not match. Reject anything older than five minutes, and
+      compare in constant time. `webhooks.verify()` in the Node SDK does all three.

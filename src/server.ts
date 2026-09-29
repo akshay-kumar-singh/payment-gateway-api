@@ -120,6 +120,35 @@ app.post('/pg/orders', authenticate, async (req, res) => {
   res.status(200).json(toOrderJson(order));
 });
 
+app.get('/pg/orders', authenticate, (req, res) => {
+  const mid = (req as any).merchant.mid;
+
+  const limit = Math.min(Math.max(Number(req.query.limit ?? 20), 1), 100);
+  const cursor = req.query.cursor ? String(req.query.cursor) : undefined;
+
+  // Newest first, so a cursor means "everything older than this order".
+  const mine = [...orders.values()]
+    .filter((o) => o.mid === mid)
+    .sort((a, b) => b.createdAt - a.createdAt || a.orderId.localeCompare(b.orderId));
+
+  // Cursor is an orderId. Keyset paging, not offset: inserting a new order while
+  // the merchant pages through cannot shift rows and make them skip one.
+  const from = cursor ? mine.findIndex((o) => o.orderId === cursor) : 0;
+  if (cursor && from === -1) {
+    return fail(res, 400, 'INVALID_CURSOR', 'That cursor does not match any order');
+  }
+
+  const page = mine.slice(from, from + limit);
+  const next = mine[from + limit];
+
+  res.json({
+    data: page.map(toOrderJson),
+    // Present only when there is more. Absent means you have reached the end.
+    nextCursor: next ? next.orderId : undefined,
+    hasMore: Boolean(next),
+  });
+});
+
 app.get('/pg/orders/:orderId', authenticate, (req, res) => {
   const order = orders.get(req.params.orderId);
   if (!order || order.mid !== (req as any).merchant.mid) {
